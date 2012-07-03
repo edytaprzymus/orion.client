@@ -1379,6 +1379,50 @@ var exports = {};
 			}
 		});
 		commandService.addCommand(pushForceCommand);
+		
+		var switchRemoteCommand = new mCommands.Command({			
+			name : messages["Switch Remote"],
+			tooltip: messages["Switch Remote tracked by the current branch"],
+			imageClass: "git-sprite-merge", //$NON-NLS-0$
+			spriteClass: "gitCommandSprite", //$NON-NLS-0$
+			id : "eclipse.orion.git.switchRemote", //$NON-NLS-0$
+			callback: function(data) {
+				var item = data.items;
+				var gitService = serviceRegistry.getService("orion.git.provider");
+				var remotes = item.RemoteLocation;
+				var parts = item.CloneLocation.split("/");
+				var remoteLocation = "/gitapi/remote/file/" + parts[4]; 
+				gitService.getGitRemote(remoteLocation).then(
+				function(resp){
+					var remotes = resp.Children;
+						var gitService = serviceRegistry.getService("orion.git.provider");
+						var dialog = new orion.git.widgets.RemotePrompterDialog({
+								title: messages["Choose Branch"],
+								serviceRegistry: serviceRegistry,
+								gitClient: gitService,
+								treeRoot: {
+									Children: remotes
+								},
+								hideNewBranch: true,
+								func: dojo.hitch(this, 
+										function(targetBranch, remote) {
+										//TODO Send the change of remote to the server
+										item.RemoteLocation[0] =  remote;
+										
+									}
+								)
+								});
+						dialog.startup();
+						dialog.show();
+					}
+					);
+			},
+			visibleWhen: function(item) {
+				return item.Type === "Branch" && item.Current === true; //$NON-NLS-1$ //$NON-NLS-0$
+			}
+			});
+			
+		commandService.addCommand(switchRemoteCommand);
 
 		var previousLogPage = new mCommands.Command({
 			name : messages["< Previous Page"],

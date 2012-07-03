@@ -336,5 +336,7 @@ define({
 	"Active Branch Log": "Git Log (Active Branch)",
 	"Show the log for the active local branch": "Show the log for the active local branch",
 	"Remote Branch Log": "Git Log (Remote Branch)",
-	"Show the log for the corresponding remote tracking branch": "Show the log for the corresponding remote tracking branch"
+	"Show the log for the corresponding remote tracking branch": "Show the log for the corresponding remote tracking branch",
+	"Switch Remote being tracked by the current branch" : "Switch Remote being tracked by the current branch",
+	"Switch Remote":"Switch Remote"
 });
