@@ -493,7 +493,12 @@ exports.GitRepositoryExplorer = (function() {
 				
 				for(var i=0; i<branches.length;i++){
 					branches[i].ParentLocation = branchLocation;
-					that.renderBranch(branches[i], i);
+					if(branches[i].Current)
+						that.renderBranch(branches[i], i);
+				}
+				for(var i=0; i<branches.length;i++){
+					if(branches[i].Current === false)
+						that.renderBranch(branches[i], i);
 				}
 			}, function(error){
 				progress.done();
