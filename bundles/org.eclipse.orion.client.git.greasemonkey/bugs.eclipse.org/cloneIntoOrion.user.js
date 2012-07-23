@@ -91,6 +91,36 @@
 
 	var gitRepoUrl = map[product + "_" + component];
 	if (gitRepoUrl) {
+	
+	
+	    var comments = document.getElementsByClassName("bz_comment_text");
+	    var urls = new Array();
+        for (var i = 0; i<comments.length; i++){
+           var commentsChildren = comments[i].childNodes;
+           for(var j = 0;j<commentsChildren.length;j++){
+            if(commentsChildren[j].tagName == "A"){
+                var href = commentsChildren[j].href;
+                var parts = href.split("/");
+                var host = parts[2];
+                if(host == "github.com"){
+                    var button = document.createElement("input");
+                    button.id = "button" + i + j;
+                    button.type = "button";
+                    button.value = "Orion";
+                    button.style.textAlign = "left";
+                    button.className = "orionButton";
+                    urls.push("git@" + parts[2] + ":" + parts[3] + "/" + parts[4] + "_" + parts[6]);
+                    comments[i].insertBefore(button, commentsChildren[j].nextSibling);
+                    button.onclick = function(){
+                        window.open("http://orionhub.org/git/pullRequest.html#" +"git@" + parts[2] + ":" + parts[3] + "/" + parts[4] + "_" + parts[6]);
+	                }
+	              
+                }
+              }
+            }
+        }
+        
+        var buttons = document.getElementsByClassName("orionButton");
 		
 		var url = document.createElement("a");
 		url.id = "anchor";
@@ -108,7 +138,13 @@
 		radio1.checked = "true";
 		radio1.onclick = function(){
 			    if (document.getElementById("radio1").checked){
-			    document.getElementById("anchor").href = "http:/orionhub.org/git/git-repository.html#,cloneGitRepository=" + gitRepoUrl;
+			    document.getElementById("anchor").href = "http://orionhub.org/git/git-repository.html#,cloneGitRepository=" + gitRepoUrl;
+			    for(var i1 = 0; i1<buttons.length; i1++){
+			        var k = i1;
+			        buttons[i1].onclick = function(){
+			            window.open("http://orionhub.org/git/pullRequest.html#" + urls[k]);
+			        }
+			    }
 		    }
 		}
 		
@@ -121,7 +157,13 @@
 		radio2.type = "radio";
 		radio2.onclick = function(){
 			    if (document.getElementById("radio2").checked){
-			    document.getElementById("anchor").href = "http:/orion.eclipse.org.org/git/git-repository.html#,cloneGitRepository=" + gitRepoUrl;
+			    document.getElementById("anchor").href = "http://orion.eclipse.org.org/git/git-repository.html#,cloneGitRepository=" + gitRepoUrl;
+			    for(var i2 = 0; i2<buttons.length;i2++){
+			        var k = i2;
+			        buttons[i2].onclick = function(){
+			            window.open("http://orion.eclipse.org.org/git/pullRequest.html#" + urls[k]);
+			        }
+			    }
 		    }
 		}
 		
@@ -135,6 +177,12 @@
 		radio3.onclick = function(){
 			    if (document.getElementById("radio3").checked){
 			    document.getElementById("anchor").href = "http:/" + document.getElementById('hostid').value + "/git/git-repository.html#,cloneGitRepository=" + gitRepoUrl;
+			    for(var i3 = 0; i3<buttons.length;i3++){
+			    var k = i3;
+			        buttons[i3].onclick = function(){
+			            window.open("http://" + document.getElementById('hostid').value +"/git/pullRequest.html#" + urls[k]);
+			        }
+			    }
 		    }
 		}
 		
@@ -146,25 +194,52 @@
 		host.onblur=function(){
 		    if(document.getElementById("radio3").checked){
 		    document.getElementById("anchor").href = "http:/" + document.getElementById('hostid').value + "/git/git-repository.html#,cloneGitRepository=" + gitRepoUrl;
+		    for(var i = 0; i<buttons.length;i++){
+		            var k = i;
+			        buttons[i].onclick = function(){
+			            window.open("http://" + document.getElementById('hostid').value +"/git/pullRequest.html#" + urls[k]);
+			        }
+			    }
 		    }
+		    
 		}
 		
 		host.onchange=function(){
 		    if(document.getElementById("radio3").checked){
-		    document.getElementById("anchor").href = "http:/" + document.getElementById('hostid').value + "/git/git-repository.html#,cloneGitRepository=" + gitRepoUrl;
+		    document.getElementById("anchor").href = "http://" + document.getElementById('hostid').value + "/git/git-repository.html#,cloneGitRepository=" + gitRepoUrl;
+		    for(var i = 0; i<buttons.length;i++){
+	                var k = i;
+		            buttons[i].onclick = function(){
+			            window.open("http://" + document.getElementById('hostid').value +"/git/pullRequest.html#" + urls[k]);
+			        }
+			    }
 		    }
 		}
 		
 		host.onkeydown=function(){
 		    if(document.getElementById("radio3").checked){
-		    document.getElementById("anchor").href = "http:/" + document.getElementById('hostid').value + "/git/git-repository.html#,cloneGitRepository=" + gitRepoUrl;
+		    document.getElementById("anchor").href = "http://" + document.getElementById('hostid').value + "/git/git-repository.html#,cloneGitRepository=" + gitRepoUrl;
+    		    for(var i = 0; i<buttons.length;i++){
+    		    var k = i;
+			        buttons[i].onclick = function(){
+			            window.open("http://" + document.getElementById('hostid').value +"/git/pullRequest.html#" + urls[k]);
+			        }
+			    }
 		    }
 		}
 		host.onkeyup=function(){
 		    if(document.getElementById("radio3").checked){
 		    document.getElementById("anchor").href = "http:/" + document.getElementById('hostid').value + "/git/git-repository.html#,cloneGitRepository=" + gitRepoUrl;
+		    for(var i = 0; i<buttons.length;i++){
+		    var k = i;
+			        buttons[i].onclick = function(){
+			            window.open("http://" + document.getElementById('hostid').value +"/git/pullRequest.html#" + urls[k]);
+			        }
+			    }
 		    }
 		}
+		
+		
 		
 		var div = document.createElement("div");
 		var hint = document.createElement("div");
@@ -215,6 +290,9 @@
 		var row3 = table.insertRow(2);
 		row3.width = "100%";
 		row3.appendChild(hr);
+		
+		
+
 		
 	}
 })();
