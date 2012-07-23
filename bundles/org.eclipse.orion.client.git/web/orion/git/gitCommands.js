@@ -13,7 +13,7 @@
 /*jslint browser:true eqeqeq:false laxbreak:true */
 define(['i18n!git/nls/gitmessages', 'require', 'dojo', 'orion/commands', 'orion/util', 'orion/git/util', 'orion/compare/compareUtils', 'orion/git/widgets/CloneGitRepositoryDialog', 
         'orion/git/widgets/AddRemoteDialog', 'orion/git/widgets/GitCredentialsDialog', 'orion/widgets/NewItemDialog', 
-        'orion/git/widgets/RemotePrompterDialog', 'orion/git/widgets/ApplyPatchDialog', 'orion/git/widgets/OpenCommitDialog', 
+        'orion/git/widgets/RemotePrompterDialog', 'orion/git/widgets/ApplyPatchDialog', 'orion/git/widgets/OpenCommitDialog', 'orion/git/widgets/ConfirmPushDialog', 
         'orion/git/widgets/ContentDialog', 'orion/git/widgets/CommitDialog'], 
         function(messages, require, dojo, mCommands, mUtil, mGitUtil, mCompareUtils) {
 
@@ -379,12 +379,14 @@ var exports = {};
 			});
 		commandService.addCommand(linkRepoCommand);
 
+		var checkoutTagNameParameters = new mCommands.ParametersDescription([new mCommands.CommandParameter('name', 'text', messages["Local Branch Name:"])]); //$NON-NLS-1$ //$NON-NLS-0$
 		var checkoutTagCommand = new mCommands.Command({
 			name: messages['Checkout'],
 			tooltip: messages["Checkout the current tag, creating a local branch based on its contents."],
 			imageClass: "git-sprite-checkout", //$NON-NLS-0$
 			spriteClass: "gitCommandSprite", //$NON-NLS-0$
 			id: "eclipse.checkoutTag", //$NON-NLS-0$
+			parameters: checkoutTagNameParameters,
 			callback: function(data) {
 				var item = data.items;
 				function getBranchItem(){
@@ -398,25 +400,30 @@ var exports = {};
 					}
 					return item.parent.parent;
 				}
-
-				exports.getNewItemName(item, explorer, false, data.domNode.id, "tag_"+item.Name, function(name){ //$NON-NLS-0$
-					if(!name && name==""){
-						return;
-					}
-								
-					var repositoryLocation;
-					if (item.Repository != null) {
-						repositoryLocation = item.Repository.Location;
-					} else {
-						repositoryLocation = item.parent.parent.Location;
-					}
-					var progressService = serviceRegistry.getService("orion.page.message"); //$NON-NLS-0$
-					progressService.createProgressMonitor(serviceRegistry.getService("orion.git.provider").checkoutTag(repositoryLocation, item.Name, name), //$NON-NLS-0$
+				
+				var checkoutTagFunction = function(repositoryLocation, itemName, name){
+					serviceRegistry.getService("orion.page.message").createProgressMonitor(serviceRegistry.getService("orion.git.provider").checkoutTag(repositoryLocation, itemName, name), //$NON-NLS-0$
 							dojo.string.substitute(messages["Checking out tag ${0}"], [name])).deferred.then(function() {
 						dojo.hitch(explorer, explorer.changedItem)(getBranchItem());
 					}, displayErrorOnStatus);
-				}, undefined, true);
+				};
 				
+				var repositoryLocation = (item.Repository != null) ? item.Repository.Location : item.parent.parent.Location;
+				if (data.parameters.valueFor("name") && !data.parameters.optionsRequested) { //$NON-NLS-0$
+					checkoutTagFunction(repositoryLocation, item.Name, data.parameters.valueFor("name")); //$NON-NLS-0$
+				} else {
+					//TODO Here should go some input validations, see bug: https://bugs.eclipse.org/bugs/show_bug.cgi?id=381735
+					if(!data.parameters.valueFor("name")){
+						return;
+					} else {
+						exports.getNewItemName(item, explorer, false, data.domNode.id, messages["Local Branch Name:"], function(name){
+							if (!name && name == "") {
+								return;
+							}		
+							checkoutTagFunction(repositoryLocation, item.Name, name);
+						});
+					}
+				}
 			},
 			visibleWhen: function(item){
 				return item.Type === "Tag"; //$NON-NLS-0$
@@ -1183,7 +1190,7 @@ var exports = {};
 			}
 		});
 		commandService.addCommand(rebaseCommand);
-
+		
 		var pushCommand = new mCommands.Command({
 			name : messages["Push All"],
 			tooltip: messages["Push commits and tags from your local branch into the remote branch"],
@@ -1191,14 +1198,15 @@ var exports = {};
 			spriteClass: "gitCommandSprite", //$NON-NLS-0$
 			id : "eclipse.orion.git.push", //$NON-NLS-0$
 			callback: function(data) {
-				
+				var target;
 				var item = data.items;
 				var path = dojo.hash();
 				if (item.toRef) {
 					item = item.toRef;
 				}
-				
 				var commandInvocation = data;
+				
+				var parts = item.CloneLocation.split("/");
 				
 				var handleResponse = function(jsonData, commandInvocation){
 					if (jsonData.JsonData.HostKey){
@@ -1220,89 +1228,115 @@ var exports = {};
 					commandService.collectParameters(commandInvocation);
 					return;
 				}
-
-				exports.gatherSshCredentials(serviceRegistry, commandInvocation).then(
-					function(options) {
-						
-						var gitService = serviceRegistry.getService("orion.git.provider"); //$NON-NLS-0$
-						if (item.RemoteLocation.length == 1 && item.RemoteLocation[0].Children.length == 1) {
-							var progressService = serviceRegistry.getService("orion.page.message"); //$NON-NLS-0$
-							progressService.createProgressMonitor(gitService.doPush(item.RemoteLocation[0].Children[0].Location, "HEAD", true, false, //$NON-NLS-0$
-									options.gitSshUsername, options.gitSshPassword,
-									options.knownHosts, options.gitPrivateKey, options.gitPassphrase), messages["Pushing remote: "] + path).deferred.then(
-								function(jsonData){
-									exports.handleProgressServiceResponse2(jsonData, serviceRegistry, 
-										function() {
-											if (explorer.parentId === "explorer-tree") { //$NON-NLS-0$
-												if (!jsonData || !jsonData.HttpCode)
-													dojo.query(".treeTableRow").forEach(function(node, i) { //$NON-NLS-0$
-													dojo.toggleClass(node, "outgoingCommitsdRow", false); //$NON-NLS-0$
-												});
-											} else {
-												dojo.hitch(explorer, explorer.changedItem)();
-											}
-										}, function (jsonData) {
-											handleResponse(jsonData, commandInvocation);
-										}
-									);
-								}, function(jsonData, secondArg) {
-									exports.handleProgressServiceResponse2(jsonData, serviceRegistry, 
-										function() {
-										
-										}, function (jsonData) {
-											handleResponse(jsonData, commandInvocation);
-										}
-									);
-								}	
-							);			
-						} else {
-							var remotes = item.RemoteLocation;
-							
-							var dialog = new orion.git.widgets.RemotePrompterDialog({
-								title: messages["Choose Branch"],
-								serviceRegistry: serviceRegistry,
-								gitClient: gitService,
-								treeRoot: {
-									Children: remotes
-								},
-								hideNewBranch: true,
-								func: dojo.hitch(this, 
-									function(targetBranch, remote) {
-										var progressService = serviceRegistry.getService("orion.page.message"); //$NON-NLS-0$
-										progressService.createProgressMonitor(gitService.doPush(targetBranch.Location, "HEAD", true, true, //$NON-NLS-0$
-												options.gitSshUsername, options.gitSshPassword, options.knownHosts,
-												options.gitPrivateKey, options.gitPassphrase), messages['Pushing remote: '] + remote.Name).deferred.then(
-											function(jsonData){
-												exports.handleProgressServiceResponse2(jsonData, serviceRegistry, 
-													function() {
-														if (explorer.parentId === "explorer-tree") { //$NON-NLS-0$
-															if (!jsonData || !jsonData.HttpCode)
-																dojo.query(".treeTableRow").forEach(function(node, i) { //$NON-NLS-0$
-																dojo.toggleClass(node, "outgoingCommitsdRow", false); //$NON-NLS-0$
-															});
-														} else {
-															dojo.hitch(explorer, explorer.changedItem)();
-														}
-													}, function (jsonData) {
-														handleResponse(jsonData, commandInvocation);
-													}
-												);
-											}, function(jsonData, secondArg) {
-												exports.handleProgressServiceResponse2(jsonData, serviceRegistry, 
-													function() {
-													
-													}, function (jsonData) {
-														handleResponse(jsonData, commandInvocation);
-													}
-												);
-											}
-										);
+				var gitService = serviceRegistry.getService("orion.git.provider");
+				
+				var handlePush = function(options, location, ref, name, force){
+					var progressService = serviceRegistry.getService("orion.page.message"); //$NON-NLS-0$
+					progressService.createProgressMonitor(gitService.doPush(location, ref, true, force, //$NON-NLS-0$
+							options.gitSshUsername, options.gitSshPassword, options.knownHosts,
+							options.gitPrivateKey, options.gitPassphrase), messages['Pushing remote: '] + name).deferred.then(
+						function(jsonData){
+							exports.handleProgressServiceResponse2(jsonData, serviceRegistry, 
+								function() {
+									if (explorer.parentId === "explorer-tree") { //$NON-NLS-0$
+										if (!jsonData || !jsonData.HttpCode)
+											dojo.query(".treeTableRow").forEach(function(node, i) { //$NON-NLS-0$
+											dojo.toggleClass(node, "outgoingCommitsdRow", false); //$NON-NLS-0$
+										});
+									} else {
+										dojo.hitch(explorer, explorer.changedItem)();
 									}
-								)
-							});
-							dialog.startup();
-							dialog.show();	
+								}, function (jsonData) {
+									handleResponse(jsonData, commandInvocation);
+								}
+							);
+						}, function(jsonData, secondArg) {
+							exports.handleProgressServiceResponse2(jsonData, serviceRegistry, 
+								function() {
+								
+								}, function (jsonData) {
+									handleResponse(jsonData, commandInvocation);
+								}
+							);
 						}
+					);
+				};
+
+				gitService.getGitClone(item.CloneLocation).then(
+					function(clone){
+						var remoteLocation = clone.Children[0].RemoteLocation;
+						var locationToChange = clone.Children[0].ConfigLocation;
+						
+						exports.gatherSshCredentials(serviceRegistry, commandInvocation).then(
+							function(options) {
+								
+								var result = new dojo.Deferred();
+								
+								if (item.RemoteLocation.length === 1 && item.RemoteLocation[0].Children.length === 1) { //when we push next time - chance to switch saved remote
+									result = gitService.getGitRemote(remoteLocation);
+								} else {
+									var remotes = {};
+									remotes.Children = item.RemoteLocation;
+									result.resolve(remotes);
+									
+								}
+						
+								result.then(
+									function(remotes){
+										var dialog = new orion.git.widgets.RemotePrompterDialog({
+											title: messages["Choose Branch"],
+											serviceRegistry: serviceRegistry,
+											gitClient: gitService,
+											treeRoot: {
+												Children: remotes.Children
+											},
+											hideNewBranch: false,
+											func: dojo.hitch(this, 
+												function(targetBranch, remote, optional) {
+													if(targetBranch === null){
+														target = optional;
+													}
+													else{
+														target = targetBranch;
+													}
+													var locationToUpdate = "/gitapi/config/" + "branch." + item.Name + ".remote"  + "/clone/file/" + parts[4];
+													gitService.addCloneConfigurationProperty(locationToChange,"branch." + item.Name + ".remote" ,target.parent.Name).then(
+														function(){
+															handlePush(options, target.Location, "HEAD",target.Name, false);
+														}, function(err){
+															if(err.status == 409){ //when confing entry is already defined we have to edit it
+																gitService.editCloneConfigurationProperty(locationToUpdate,target.parent.Name).then(
+																	function(){
+																		handlePush(options, target.Location, "HEAD",target.Name, false);
+																	}
+																);
+															}
+														}
+													);
+												}
+											)
+										});
+										
+										if (item.RemoteLocation.length === 1 && item.RemoteLocation[0].Children.length === 1) { //when we push next time - chance to switch saved remote
+											var dialog2 = dialog;
+											
+											dialog = new orion.git.widgets.ConfirmPushDialog({
+												title: messages["Choose Branch"],
+												serviceRegistry: serviceRegistry,
+												gitClient: gitService,
+												dialog: dialog2,
+												location: item.RemoteLocation[0].Children[0].Name,
+												func: dojo.hitch(this, function(){handlePush(options,item.RemoteLocation[0].Children[0].Location, "HEAD", path, true);})
+											});
+										}
+										
+										dialog.startup();
+										dialog.show();
+									}
+								);
+						
+							}
+						);
 					}
 				);
 			},
@@ -1313,6 +1347,7 @@ var exports = {};
 				else
 					// for action in the repo view
 					return item.Type === "Branch" && item.Current && item.RemoteLocation; //$NON-NLS-0$
+				
 			}
 		});
 		commandService.addCommand(pushCommand);
@@ -1326,14 +1361,15 @@ var exports = {};
 			callback: function(data) {
 				if(!confirm(messages["You're going to override content of the remote branch. This can cause the remote repository to lose commits."]+"\n\n"+messages['Are you sure?'])) //$NON-NLS-1$
 					return;
-				
+				var target;
 				var item = data.items;
 				var path = dojo.hash();
 				if (item.toRef) {
 					item = item.toRef;
 				}
-				
 				var commandInvocation = data;
+				
+				var parts = item.CloneLocation.split("/");
 				
 				var handleResponse = function(jsonData, commandInvocation){
 					if (jsonData.JsonData.HostKey){
@@ -1355,97 +1391,122 @@ var exports = {};
 					commandService.collectParameters(commandInvocation);
 					return;
 				}
-
-				exports.gatherSshCredentials(serviceRegistry, commandInvocation).then(
-					function(options) {
-						
-						var gitService = serviceRegistry.getService("orion.git.provider"); //$NON-NLS-0$
-						if (item.RemoteLocation.length == 1 && item.RemoteLocation[0].Children.length == 1) {
-									var progressService = serviceRegistry.getService("orion.page.message"); //$NON-NLS-0$
-									progressService.createProgressMonitor(gitService.doPush(item.RemoteLocation[0].Children[0].Location, "HEAD", true, true, //$NON-NLS-0$
-									options.gitSshUsername, options.gitSshPassword,
-									options.knownHosts, options.gitPrivateKey, options.gitPassphrase), messages['Pushing remote: '] + path).deferred.then(
-								function(jsonData){
-									exports.handleProgressServiceResponse2(jsonData, serviceRegistry, 
-										function() {
-											if (explorer.parentId === "explorer-tree") { //$NON-NLS-0$
-												if (!jsonData || !jsonData.HttpCode)
-													dojo.query(".treeTableRow").forEach(function(node, i) { //$NON-NLS-0$
-													dojo.toggleClass(node, "outgoingCommitsdRow", false); //$NON-NLS-0$
-												});
-											} else {
-												dojo.hitch(explorer, explorer.changedItem)();
-											}
-										}, function (jsonData) {
-											handleResponse(jsonData, commandInvocation);
-										}
-									);
-								}, function(jsonData, secondArg) {
-									exports.handleProgressServiceResponse2(jsonData, serviceRegistry, 
-										function() {
-										
-										}, function (jsonData) {
-											handleResponse(jsonData, commandInvocation);
-										}
-									);
-								}	
-							);			
-						} else {
-							var remotes = item.RemoteLocation;
-							
-							var dialog = new orion.git.widgets.RemotePrompterDialog({
-								title: messages['Choose Branch'],
-								serviceRegistry: serviceRegistry,
-								gitClient: gitService,
-								treeRoot: {
-									Children: remotes
-								},
-								hideNewBranch: true,
-								func: dojo.hitch(this, 
-									function(targetBranch, remote) {
-										var progressService = serviceRegistry.getService("orion.page.message"); //$NON-NLS-0$
-										progressService.createProgressMonitor(gitService.doPush(targetBranch.Location, "HEAD", true, true, //$NON-NLS-0$
-												options.gitSshUsername, options.gitSshPassword, options.knownHosts,
-												options.gitPrivateKey, options.gitPassphrase), messages['Pushing remote: '] + remote.Name).deferred.then(
-											function(jsonData){
-												exports.handleProgressServiceResponse2(jsonData, serviceRegistry, 
-													function() {
-														if (explorer.parentId === "explorer-tree") { //$NON-NLS-0$
-															if (!jsonData || !jsonData.HttpCode)
-																dojo.query(".treeTableRow").forEach(function(node, i) { //$NON-NLS-0$
-																dojo.toggleClass(node, "outgoingCommitsdRow", false); //$NON-NLS-0$
-															});
-														} else {
-															dojo.hitch(explorer, explorer.changedItem)();
-														}
-													}, function (jsonData) {
-														handleResponse(jsonData, commandInvocation);
-													}
-												);
-											}, function(jsonData, secondArg) {
-												exports.handleProgressServiceResponse2(jsonData, serviceRegistry, 
-													function() {
-													
-													}, function (jsonData) {
-														handleResponse(jsonData, commandInvocation);
-													}
-												);
-											}
-										);
-									}
-								)
-							});
-							dialog.startup();
-							dialog.show();	
-						}
-					}
-				);
+				var gitService = serviceRegistry.getService("orion.git.provider");
 				
+				var handlePush = function(options, location, ref, name, force){
+					var progressService = serviceRegistry.getService("orion.page.message"); //$NON-NLS-0$
+					progressService.createProgressMonitor(gitService.doPush(location, ref, true, force, //$NON-NLS-0$
+							options.gitSshUsername, options.gitSshPassword, options.knownHosts,
+							options.gitPrivateKey, options.gitPassphrase), messages['Pushing remote: '] + name).deferred.then(
+						function(jsonData){
+							exports.handleProgressServiceResponse2(jsonData, serviceRegistry, 
+								function() {
+									if (explorer.parentId === "explorer-tree") { //$NON-NLS-0$
+										if (!jsonData || !jsonData.HttpCode)
+											dojo.query(".treeTableRow").forEach(function(node, i) { //$NON-NLS-0$
+											dojo.toggleClass(node, "outgoingCommitsdRow", false); //$NON-NLS-0$
+										});
+									} else {
+										dojo.hitch(explorer, explorer.changedItem)();
+									}
+								}, function (jsonData) {
+									handleResponse(jsonData, commandInvocation);
+								}
+							);
+						}, function(jsonData, secondArg) {
+							exports.handleProgressServiceResponse2(jsonData, serviceRegistry, 
+								function() {
+								
+								}, function (jsonData) {
+									handleResponse(jsonData, commandInvocation);
+								}
+							);
+						}
+					);
+				};
+										
+				gitService.getGitClone(item.CloneLocation).then(
+					function(clone){
+						var remoteLocation = clone.Children[0].RemoteLocation;
+						var locationToChange = clone.Children[0].ConfigLocation;
+						
+						exports.gatherSshCredentials(serviceRegistry, commandInvocation).then(
+							function(options) {
+								
+								var result = new dojo.Deferred();
+								
+								if (item.RemoteLocation.length === 1 && item.RemoteLocation[0].Children.length === 1) { //when we push next time - chance to switch saved remote
+									result = gitService.getGitRemote(remoteLocation);
+								} else {
+									var remotes = {};
+									remotes.Children = item.RemoteLocation;
+									result.resolve(remotes);
+									
+								}
+						
+								result.then(
+									function(remotes){
+										var dialog = new orion.git.widgets.RemotePrompterDialog({
+											title: messages["Choose Branch"],
+											serviceRegistry: serviceRegistry,
+											gitClient: gitService,
+											treeRoot: {
+												Children: remotes.Children
+											},
+											hideNewBranch: false,
+											func: dojo.hitch(this, 
+												function(targetBranch, remote, optional) {
+													if(targetBranch === null){
+														target = optional;
+													}
+													else{
+														target = targetBranch;
+													}
+													var locationToUpdate = "/gitapi/config/" + "branch." + item.Name + ".remote"  + "/clone/file/" + parts[4];
+													gitService.addCloneConfigurationProperty(locationToChange,"branch." + item.Name + ".remote" ,target.parent.Name).then(
+														function(){
+															handlePush(options, target.Location, "HEAD",target.Name, true);
+														}, function(err){
+															if(err.status == 409){ //when confing entry is already defined we have to edit it
+																gitService.editCloneConfigurationProperty(locationToUpdate,target.parent.Name).then(
+																	function(){
+																		handlePush(options, target.Location, "HEAD",target.Name, true);
+																	}
+																);
+															}
+														}
+													);
+												}
+											)
+										});
+										
+										if (item.RemoteLocation.length === 1 && item.RemoteLocation[0].Children.length === 1) { //when we push next time - chance to switch saved remote
+											var dialog2 = dialog;
+											
+											dialog = new orion.git.widgets.ConfirmPushDialog({
+												title: messages["Choose Branch"],
+												serviceRegistry: serviceRegistry,
+												gitClient: gitService,
+												dialog: dialog2,
+												location: item.RemoteLocation[0].Children[0].Name,
+												func: dojo.hitch(this, function(){handlePush(options,item.RemoteLocation[0].Children[0].Location, "HEAD", path, true);})
+											});
+										}
+										
+										dialog.startup();
+										dialog.show();
+									}
+								);
+						
+							}
+						);
+					}
+				);			
 			},
 			visibleWhen : function(item) {
 				if (item.toRef)
 					// for action in the git log
-					return item.RepositoryPath === "" && item.toRef.Type === "Branch" && item.toRef.Current && item.toRef.RemoteLocation; //$NON-NLS-0$
+					return item.RepositoryPath === "" && item.toRef.Type === "Branch" && item.toRef.Current && item.toRef.RemoteLocation; //$NON-NLS-0$		
 			}
 		});
 		commandService.addCommand(pushForceCommand);
@@ -1481,42 +1542,6 @@ var exports = {};
 			}
 		});
 		commandService.addCommand(nextLogPage);
-
-		var pushToCommand = new mCommands.Command({
-			name : messages["Push to..."],
-			tooltip: messages["Push from your local branch into the selected remote branch"],
-			imageClass: "git-sprite-push", //$NON-NLS-0$
-			spriteClass: "gitCommandSprite", //$NON-NLS-0$
-			id : "eclipse.orion.git.pushto", //$NON-NLS-0$
-			callback: function(data) {
-				var item = data.items;
-				var remotes = {};
-				for(var child_no in item.parent.parent.children){
-					if(item.parent.parent.children[child_no].Name === "Remote"){ //$NON-NLS-0$
-						remotes = item.parent.parent.children[child_no];
-					}
-				}
-
-				var gitService = serviceRegistry.getService("orion.git.provider"); //$NON-NLS-0$
-				var dialog = new orion.git.widgets.RemotePrompterDialog({
-					title: messages['Choose Branch'],
-					serviceRegistry: serviceRegistry,
-					gitClient: gitService,
-					treeRoot: remotes,
-					//hideNewBranch: true,
-					func: dojo.hitch(this, function(targetBranch, remote, newBranch) {
-						//TODO perform push here
-						console.info("Branch " + targetBranch + " remote " + remote + " new branch " + newBranch); //$NON-NLS-2$ //$NON-NLS-1$ //$NON-NLS-0$
-					})
-				});
-				dialog.startup();
-				dialog.show();
-			},
-			visibleWhen : function(item) {
-				return false && item.Type === "Branch" && item.Current; //TODO when committing to anothe branch is ready remofe "false &&" //$NON-NLS-0$
-			}
-		});
-		commandService.addCommand(pushToCommand);
 
 		var resetIndexCommand = new mCommands.Command({
 			name : messages['Reset'],
