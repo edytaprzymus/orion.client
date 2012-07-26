@@ -345,5 +345,8 @@ define({
 	"Change..." : "Change...",
 	"Merge Squash": "Merge Squash",
 	"Squash the content of the branch to the index" : "Squash the content of the branch to the index",
-	"Local Branch Name:" : "Local Branch Name:"
+	"Local Branch Name:" : "Local Branch Name:",
+	"Ask for review" : "Ask for review",
+	"Send email with notification about the commit" : "Send email with notification about the commit",
+	"Orion username" : "Orion username"
 });

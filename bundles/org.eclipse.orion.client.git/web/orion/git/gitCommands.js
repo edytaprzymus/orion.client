@@ -1636,6 +1636,48 @@ var exports = {};
 			}
 		});
 		commandService.addCommand(removeTagCommand);
+		
+		var notificationParameters = new mCommands.ParametersDescription([new mCommands.CommandParameter('login', 'text', messages["Orion username"])]); //$NON-NLS-1$ //$NON-NLS-0$
+		
+		var sendNotificationCommand = new mCommands.Command({
+			name: messages["Ask for review"],
+			tooltip: messages["Send email with notification about the commit"],
+			imageClass: "core-sprite-tag", //$NON-NLS-0$
+			id: "eclipse.sendNotification", //$NON-NLS-0$
+			parameters: notificationParameters,
+			callback: function(data) {
+				var item = data.items;
+				var headLocation = item.Location.replace(item.Name, "HEAD"); 
+				var authorName = item.AuthorName;
+				var message = item.Message;
+				serviceRegistry.getService("orion.git.provider").getGitClone(item.CloneLocation).then(
+					function(clone){
+						var pullReqUrl = window.location.protocol + "//" + window.location.host + "/" + "/git/pullRequest.html" + "#" + clone.Children[0].GitUrl + "_" + item.Name;;
+						serviceRegistry.getService("orion.git.provider").sendNotification(item.Name, headLocation, data.parameters.valueFor("login"), pullReqUrl, authorName, message).then(
+						function(result) { //$NON-NLS-0$
+							var obj = dojo.fromJson(result);
+							var display = [];
+							if (obj && (obj.Result == "Email sent" )){ //$NON-NLS-1$ //$NON-NLS-0$
+								dojo.query(".treeTableRow").forEach(function(node, i) { //$NON-NLS-0$
+									dojo.toggleClass(node, "incomingCommitsdRow", false); //$NON-NLS-0$
+								});
+								display.Severity = "Ok"; //$NON-NLS-0$
+								display.HTML = false;
+								display.Message = obj.Result;
+								serviceRegistry.getService("orion.page.message").setProgressResult(display);
+							}
+							}, 
+						displayErrorOnStatus);
+					}
+					
+				);
+			},
+			visibleWhen: function(item) {
+				return item.Type === "Commit"; //$NON-NLS-0$
+				return true;
+			}
+		});
+		commandService.addCommand(sendNotificationCommand);
 
 		var cherryPickCommand = new mCommands.Command({
 			name : messages["Cherry-Pick"],
