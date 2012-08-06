@@ -83,11 +83,13 @@ define(['i18n!git/nls/gitmessages', 'require', 'dojo','dijit', 'orion/section', 
 			dojo.empty(dojo.byId("table"));
 			dojo.empty(dojo.byId("openCommitSection"));
 			dojo.empty(dojo.byId("fetchDiv"));
+			dojo.empty(dojo.byId("remoteDiv"));
 			this.fileClient.loadWorkspace().then(
 				function(workspace){
 					that.setDefaultPath(workspace.Location);
 					that.commandService.registerCommandContribution("fetch", "eclipse.orion.git.fetch", 200);
 					that.commandService.registerCommandContribution("fetch", "eclipse.orion.git.fetchForce", 250);
+					that.commandService.registerCommandContribution("add", "eclipse.addRemotePullRequestCommand", 300);
 					var tableNode = dojo.byId("table");
 					var titleWrapper1 = new mSection.Section(dojo.byId("openCommitSection"), {
 						id: "open commit from existing repository", //$NON-NLS-0$
@@ -110,8 +112,19 @@ define(['i18n!git/nls/gitmessages', 'require', 'dojo','dijit', 'orion/section', 
 						title: "Create new repository", //$NON-NLS-0$
 						content: '<div id="createNewNode" class="mainPadding"></list>' //$NON-NLS-0$
 					});
+					var titleWrapper4 = new mSection.Section(dojo.byId("remoteDiv"), {
+						id: "add", //$NON-NLS-0$
+						title: "All repositories have remote " + params[0] + " attached", //$NON-NLS-0$
+						slideout: true,
+						canHide: true,
+						hidden: true,
+						content: '<div id="addRemoteNode" class="mainPadding"></list>' //$NON-NLS-0$
+					});
 					
 					that.renderCloneSection(params);
+					if(workspace.Children.length === 0){
+						dojo.byId("addTitle").innerHTML = "There are no repositories in the workspace";
+					}
 					that.renderSections(workspace.Children, params[0], params[2], params[1]);
 				},
 				function(){
@@ -124,8 +137,8 @@ define(['i18n!git/nls/gitmessages', 'require', 'dojo','dijit', 'orion/section', 
 		GitPullRequestExplorer.prototype.renderCloneSection = function(params){
 			var that = this;
 			that.commandService.registerCommandContribution("clone", "eclipse.cloneGitRepositoryPullReq", 200);
-			that.commandService.renderCommands("clone", dojo.byId("createNewNode"), "clone", that, "button", params[0]);
-			dojo.create("span", { style: "padding: 0px; text-align: left; width: 20px class: gitMainDescription", innerHTML : " using " + params[0] },  dojo.byId("createNewNode"));	
+			that.commandService.renderCommands("clone", dojo.byId("createNewNode"), "clone", that, "button", params[0]);;
+			dojo.create("span", { style: "padding: 0px; text-align: left;", class: "gitMainDescription", innerHTML : " using " + params[0] },  dojo.byId("createNewNode"));
 		};
 		
 		GitPullRequestExplorer.prototype.renderSections = function(repositories, url1, url2, sha){
@@ -165,6 +178,7 @@ define(['i18n!git/nls/gitmessages', 'require', 'dojo','dijit', 'orion/section', 
 				repositories[0].Content.Path = path;
 				that.registry.getService("orion.git.provider").getGitClone(repositories[0].Git.CloneLocation).then(
 					function(resp){
+						resp.Children[0].Id = repositories[0].Id;
 						that.registry.getService("orion.git.provider").getGitRemote("/gitapi/remote" + repositories[0].Location).then(
 						function(remotes){
 							var found = false;
@@ -179,12 +193,12 @@ define(['i18n!git/nls/gitmessages', 'require', 'dojo','dijit', 'orion/section', 
 										var _timer;
 										var commitPageURL = "/git/git-commit.html#" + commitLocation + "?page=1&pageSize=1";
 										var repoURL = "/git/git-repository.html#" + resp.Children[0].Location;
-										dojo.create("div", {id : resp.Children[0].Name + "tableitem" , class: "sectionTableItem lightTreeTableRow" , style: "height: 20px"},  dojo.byId("openExistingNode"));
-										dojo.create("div", {id : resp.Children[0].Name + "div" , class: "stretch" , style: "width: 1000px"},  dojo.byId(resp.Children[0].Name + "tableitem"));
-										dojo.create("div", {id : resp.Children[0].Name + "divCommands" , class: "sectionTableItemActions" },  dojo.byId(resp.Children[0].Name + "tableitem"));
-										var link2 = dojo.create("a", {style: "padding: 0px; text-align: left; display: inline-block;  width: 150px", innerHTML: repositories[0].Name , href: repoURL },  dojo.byId(resp.Children[0].Name + "div"));
-										dojo.create("span", {style: "class: gitSecondaryDescription", innerHTML: "location: " + repositories[0].Content.Path},dojo.byId(resp.Children[0].Name + "div"));
-										var link = dojo.create("a", {id : resp.Children[0].Name + "a", style: "padding: 0px; text-align: left; width: 50px", innerHTML: "Open Commit", href: commitPageURL },  dojo.byId(resp.Children[0].Name + "divCommands"));
+										dojo.create("div", {id : resp.Children[0].Id + "tableitem" , class: "sectionTableItem lightTreeTableRow"},  dojo.byId("openExistingNode"));
+										dojo.create("div", {id : resp.Children[0].Id + "div" , class: "stretch"},  dojo.byId(resp.Children[0].Id + "tableitem"));
+										dojo.create("div", {id : resp.Children[0].Id + "divCommands" , class: "sectionTableItemActions" },  dojo.byId(resp.Children[0].Id + "tableitem"));
+										var link2 = dojo.create("a", {style: "padding: 0px; text-align: left; display: inline-block;  width: 150px", innerHTML: repositories[0].Name , href: repoURL },  dojo.byId(resp.Children[0].Id + "div"));
+										dojo.create("span", {class: "gitSecondaryDescription", innerHTML: "location: " + repositories[0].Content.Path},dojo.byId(resp.Children[0].Id + "div"));
+										var link = dojo.create("a", {id : resp.Children[0].Id + "a", style: "padding: 0px; text-align: left; width: 50px", innerHTML: "Open Commit", href: commitPageURL },  dojo.byId(resp.Children[0].Id + "divCommands"));
 										dojo.byId("open commit from existing repositoryTitle").innerHTML = "Open Commit";
 										var tooltipDialog = new orion.git.widgets.CommitTooltipDialog({
 										    commit: that.currentCommit.Children[0],
@@ -228,18 +242,34 @@ define(['i18n!git/nls/gitmessages', 'require', 'dojo','dijit', 'orion/section', 
 											}
 										}
 										var repoURL = "/git/git-repository.html#" + resp.Children[0].Location;
-										dojo.create("div", {id : resp.Children[0].Name + "tableitem" , class: "sectionTableItem lightTreeTableRow" , style: "height: 20px"},  dojo.byId("fetchNode"));
-										dojo.create("div", {id : resp.Children[0].Name + "div" , class: "stretch" },  dojo.byId(resp.Children[0].Name + "tableitem"));
-										dojo.create("div", {id : resp.Children[0].Name + "divCommands" , class: "sectionTableItemActions" },  dojo.byId(resp.Children[0].Name + "tableitem"));
-										dojo.create("a", {id : resp.Children[0].Name, style: "padding: 0px; text-align: left; display: inline-block;  width: 150px", innerHTML: resp.Children[0].Name + "    " , href: repoURL },  dojo.byId(resp.Children[0].Name + "div"));
-										dojo.create("span", {style: "class: gitSecondaryDescription", innerHTML: "location: " + repositories[0].Content.Path},dojo.byId(resp.Children[0].Name + "div"));
-										that.commandService.renderCommands("fetch", dojo.byId(resp.Children[0].Name + "divCommands"), remotes.Children[index], that, "tool");
+										dojo.create("div", {id : resp.Children[0].Id + "tableitem" , class: "sectionTableItem lightTreeTableRow" , style: "height: 20px"},  dojo.byId("fetchNode"));
+										dojo.create("div", {id : resp.Children[0].Id + "div" , class: "stretch" },  dojo.byId(resp.Children[0].Id + "tableitem"));
+										dojo.create("div", {id : resp.Children[0].Id + "divCommands" , class: "sectionTableItemActions" },  dojo.byId(resp.Children[0].Id + "tableitem"));
+										dojo.create("a", {id : resp.Children[0].Id, style: "padding: 0px; text-align: left; display: inline-block;  width: 150px", innerHTML: resp.Children[0].Name + "    " , href: repoURL },  dojo.byId(resp.Children[0].Id + "div"));
+										dojo.create("span", {class: "gitSecondaryDescription", innerHTML: "location: " + repositories[0].Content.Path},dojo.byId(resp.Children[0].Id + "div"));
+										that.commandService.renderCommands("fetch", dojo.byId(resp.Children[0].Id + "divCommands"), remotes.Children[index], that, "tool");
 										dojo.byId("fetch sectionTitle").innerHTML = "Fetch from repository with the remote attached";
 						
 									}
 								);
 								
 							}
+							else{
+								var repoURL = "/git/git-repository.html#" + resp.Children[0].Location;
+								dojo.create("div", {id : resp.Children[0].Id + "tableitem" , class: "sectionTableItem lightTreeTableRow"},  dojo.byId("addRemoteNode"));
+								dojo.create("div", {id : resp.Children[0].Id + "div" , class: "stretch" },  dojo.byId(resp.Children[0].Id + "tableitem"));
+								dojo.create("div", {id : resp.Children[0].Id + "divCommands" , class: "sectionTableItemActions" },  dojo.byId(resp.Children[0].Id + "tableitem"));
+								dojo.create("a", {id : resp.Children[0].Id, style: "padding: 0px; text-align: left; display: inline-block;  width: 150px", innerHTML: resp.Children[0].Name + "    " , href: repoURL },  dojo.byId(resp.Children[0].Id + "div"));
+								dojo.create("span", {class: "gitSecondaryDescription", innerHTML: "location: " + repositories[0].Content.Path},dojo.byId(resp.Children[0].Id + "div"));
+								that.commandService.renderCommands("add", dojo.byId(resp.Children[0].Id + "divCommands"), resp.Children[0], that, "tool",  url1);
+								dojo.byId("addTitle").innerHTML = "Attach remote " + url1 + " to existing repository and fetch";
+								for(var i=0;i<remotes.Children.length;i++){
+									dojo.create("div", {}, dojo.byId(resp.Children[0].Id + "div"));
+									resp.Children[0].RemoteLocation = "/gitapi/remote" + repositories[0].Location;
+									dojo.create("div", {class: "gitSecondaryDescription", innerHTML: remotes.Children[i].Name + " : " + remotes.Children[i].GitUrl},dojo.byId(resp.Children[0].Id + "div"));
+								}
+							}
+							
 							that.renderSections(repositories.slice(1), url1, url2, sha);	
 							}
 							);
