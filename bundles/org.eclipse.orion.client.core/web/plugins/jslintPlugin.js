@@ -10,8 +10,8 @@
  *     IBM Corporation - initial API and implementation
  *******************************************************************************/
 /*jslint forin:true regexp:false*/
-/*global eclipse JSLINT require window*/
-window.onload = function() {
+/*global define JSLINT require window*/
+define(["orion/plugin", "orion/jslintworker", "domReady!"], function(PluginProvider) {
 	var validationOptions = {bitwise: false, eqeqeq: true, es5: true, immed: true, indent: 1, maxerr: 300, newcap: true,
 				nomen: false, onevar: false, plusplus: false, regexp: true, strict: false, undef: true, white: false};
 
@@ -74,7 +74,7 @@ window.onload = function() {
 					options.split(/,/).forEach(function(option) {
 						var match = /\s*(\w+)\s*:\s*(\w+)\s*/.exec(option); // name:value
 						var name = match[1], value = match[2];
-						optionsMap[name] = !!value;
+						optionsMap[name] = value;
 					});
 					validationOptions = optionsMap;
 					console.log('JSLINT using custom options: ' + Object.keys(validationOptions).map(function(k) {
@@ -211,7 +211,7 @@ window.onload = function() {
 			}
 	};
 	
-	var provider = new orion.PluginProvider();
+	var provider = new PluginProvider();
 	provider.registerService(["orion.edit.validator", "orion.cm.managedservice"], validationService, {
 		contentType: ["application/javascript", "text/html"],
 		pid: "jslint.config"
@@ -240,4 +240,4 @@ window.onload = function() {
 	//validationService.dispatchEvent = serviceProvider.dispatchEvent;
 	provider.connect();
 
-};
+});

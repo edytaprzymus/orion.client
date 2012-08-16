@@ -26,20 +26,19 @@ var exports = {};
 	var doOnce = false;
 
 	exports.updateNavTools = function(registry, explorer, toolbarId, selectionToolbarId, item, pageNavId) {
-		// we should be using orion.globalCommands#generateDomCommandsInBanner rather than managing these toolbars ourself
 		var toolbar = dojo.byId(toolbarId);
+		var commandService = registry.getService("orion.page.command"); //$NON-NLS-0$
 		if (toolbar) {
-			dojo.empty(toolbar);
+			commandService.destroy(toolbar);
 		} else {
 			throw "could not find toolbar " + toolbarId; //$NON-NLS-0$
 		}
-		var commandService = registry.getService("orion.page.command"); //$NON-NLS-0$
 		commandService.renderCommands(toolbarId, toolbar, item, explorer, "button");  //$NON-NLS-0$
 		
 		if (pageNavId) {
 			var pageNav = dojo.byId(pageNavId);
 			if (pageNav) {
-				dojo.empty(pageNav);
+				commandService.destroy(pageNav);
 				commandService.renderCommands(pageNavId, pageNav, item, explorer, "button");   //$NON-NLS-0$
 			}
 		}
@@ -47,7 +46,7 @@ var exports = {};
 		if (selectionToolbarId) {
 			var selectionTools = dojo.byId(selectionToolbarId);
 			if (selectionTools) {
-				dojo.empty(selectionToolbarId);
+				commandService.destroy(selectionToolbarId);
 				commandService.renderCommands(selectionToolbarId, selectionTools, null, explorer, "button");  //$NON-NLS-0$
 			}
 		}
@@ -58,7 +57,7 @@ var exports = {};
 			registry.getService("orion.page.selection").addEventListener("selectionChanged", function(singleSelection, selections) { //$NON-NLS-1$ //$NON-NLS-0$
 				var selectionTools = dojo.byId(selectionToolbarId);
 				if (selectionTools) {
-					dojo.empty(selectionTools);
+					commandService.destroy(selectionTools);
 					commandService.renderCommands(selectionToolbarId, selectionTools, selections, explorer, "button"); //$NON-NLS-0$
 				}
 			});
