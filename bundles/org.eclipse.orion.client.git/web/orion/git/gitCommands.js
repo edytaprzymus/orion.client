@@ -1252,8 +1252,10 @@ var exports = {};
 					progressService.createProgressMonitor(deferred, messages['Pushing remote: '] + name);
 					deferred.then(
 						function(jsonData){
+							console.log("error3");
 							exports.handleProgressServiceResponse2(jsonData, serviceRegistry, 
 								function() {
+									console.log("error5");
 									if (explorer.parentId === "explorer-tree") { //$NON-NLS-0$
 										if (!jsonData || !jsonData.HttpCode)
 											dojo.query(".treeTableRow").forEach(function(node, i) { //$NON-NLS-0$
@@ -1267,6 +1269,7 @@ var exports = {};
 								}
 							);
 						}, function(jsonData, secondArg) {
+							console.log("error2");
 							exports.handleProgressServiceResponse2(jsonData, serviceRegistry, 
 								function() {
 								
@@ -1300,6 +1303,8 @@ var exports = {};
 								result.then(
 									function(remotes){
 										if(itemTargetBranch){
+											console.log(itemTargetBranch);
+											console.log("here2");
 											handlePush(options, itemTargetBranch.Location, "HEAD", itemTargetBranch.Name, false);
 											return;
 										}
@@ -1323,10 +1328,11 @@ var exports = {};
 													var locationToUpdate = "/gitapi/config/" + "branch." + item.Name + ".remote"  + "/clone/file/" + parts[4];
 													gitService.addCloneConfigurationProperty(locationToChange,"branch." + item.Name + ".remote" ,target.parent.Name).then(
 														function(){
+															console.log("handle");
 															commandInvocation.targetBranch = target;
 															handlePush(options, target.Location, "HEAD",target.Name, false);
 														}, function(err){
-															console.log("error");
+															console.log("error!!");
 															if(err.status == 409){ //when confing entry is already defined we have to edit it
 																gitService.editCloneConfigurationProperty(locationToUpdate,target.parent.Name).then(
 																	function(){
@@ -1351,6 +1357,7 @@ var exports = {};
 												dialog: dialog2,
 												location: item.RemoteLocation[0].Children[0].Name,
 												func: dojo.hitch(this, function(){
+													console.log("here");
 													commandInvocation.targetBranch = item.RemoteLocation[0].Children[0];
 													handlePush(options,item.RemoteLocation[0].Children[0].Location, "HEAD", path, false);
 												})
@@ -1359,6 +1366,9 @@ var exports = {};
 										
 										dialog.startup();
 										dialog.show();
+									},
+									function(error){
+										console.log("eureka");
 									}
 								);
 						
@@ -1513,9 +1523,11 @@ var exports = {};
 													var locationToUpdate = "/gitapi/config/" + "branch." + item.Name + ".remote"  + "/clone/file/" + parts[4];
 													gitService.addCloneConfigurationProperty(locationToChange,"branch." + item.Name + ".remote" ,target.parent.Name).then(
 														function(){
+															console.log("add");
 															commandInvocation.targetBranch = target;
 															handlePush(options, target.Location, "HEAD",target.Name, true);
 														}, function(err){
+															console.log("handle");
 															if(err.status == 409){ //when confing entry is already defined we have to edit it
 																gitService.editCloneConfigurationProperty(locationToUpdate,target.parent.Name).then(
 																	function(){
