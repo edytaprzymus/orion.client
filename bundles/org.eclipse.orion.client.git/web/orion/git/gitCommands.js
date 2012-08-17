@@ -1326,6 +1326,7 @@ var exports = {};
 															commandInvocation.targetBranch = target;
 															handlePush(options, target.Location, "HEAD",target.Name, false);
 														}, function(err){
+															console.log("error");
 															if(err.status == 409){ //when confing entry is already defined we have to edit it
 																gitService.editCloneConfigurationProperty(locationToUpdate,target.parent.Name).then(
 																	function(){
