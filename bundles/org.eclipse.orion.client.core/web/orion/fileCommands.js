@@ -12,8 +12,8 @@
 /*global window define orion */
 /*browser:true*/
 
-define(['i18n!orion/navigate/nls/messages', "require", "dojo", "orion/util", "orion/commands", "orion/extensionCommands", "orion/widgets/NewItemDialog", "orion/widgets/DirectoryPrompterDialog", 'orion/widgets/ImportDialog', 'orion/widgets/SFTPConnectionDialog'],
-	function(messages, require, dojo, mUtil, mCommands, mExtensionCommands){
+define(['i18n!orion/navigate/nls/messages', "require", "dojo", "orion/util", "orion/commands", "orion/extensionCommands", 'orion/contentTypes', 'orion/compare/compareUtils', "orion/widgets/NewItemDialog", "orion/widgets/DirectoryPrompterDialog", 'orion/widgets/ImportDialog', 'orion/widgets/SFTPConnectionDialog'],
+	function(messages, require, dojo, mUtil, mCommands, mExtensionCommands, mContentTypes, mCompareUtils){
 
 	/**
 	 * Utility methods
@@ -353,6 +353,34 @@ define(['i18n!orion/navigate/nls/messages', "require", "dojo", "orion/util", "or
 			});
 		commandService.addCommand(renameCommand);
 		
+		var contentTypeService = new mContentTypes.ContentTypeService(serviceRegistry);
+		var compareCommand = new mCommands.Command({
+				name: messages["Compare Each Other"],
+				tooltip: messages["Compare the selected 2 files with each other"],
+				id: "eclipse.compareEachOther", //$NON-NLS-0$
+				visibleWhen: function(item) {
+					if (dojo.isArray(item)) {
+						if(item.length === 2 && !item[0].Directory && !item[1].Directory){
+							var contentType1 = contentTypeService.getFilenameContentType(item[0].Name);
+							var contentType2 = contentTypeService.getFilenameContentType(item[1].Name);
+							if(contentType1 && contentType1['extends'] === "text/plain" && contentType2 && contentType2['extends'] === "text/plain"){
+								return true;
+							}
+						} else if(item.length === 2 && item[0].Directory && item[1].Directory){
+							return false;
+						}
+					}
+					return false;
+				},
+				hrefCallback: function(data) {
+					if(data.items[0].Directory && data.items[1].Directory){
+						return require.toUrl("compare-tree/compare-tree.html#") + data.items[0].Location + "," + data.items[1].Location;
+					}
+					return mCompareUtils.generateCompareHref(data.items[0].Location + "," + data.items[1].Location, {readonly: true});
+				}
+			});
+		commandService.addCommand(compareCommand);
+		
 		var deleteCommand = new mCommands.Command({
 			name: messages["Delete"],
 			tooltip: messages["Delete the selected files or folders"],
@@ -449,7 +477,7 @@ define(['i18n!orion/navigate/nls/messages', "require", "dojo", "orion/util", "or
 			}
 		}
 		
-		var newFileNameParameters = new mCommands.ParametersDescription([new mCommands.CommandParameter('name', 'text', 'Name:', 'New File')]); //$NON-NLS-3$ //$NON-NLS-2$ //$NON-NLS-1$ //$NON-NLS-0$
+		var newFileNameParameters = new mCommands.ParametersDescription([new mCommands.CommandParameter('name', 'text', messages['Name:'], messages['New File'])]); //$NON-NLS-3$ //$NON-NLS-2$ //$NON-NLS-1$ //$NON-NLS-0$
 		
 		var newFileCommand =  new mCommands.Command({
 			name: messages["New File"],
