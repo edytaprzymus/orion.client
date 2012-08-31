@@ -14,7 +14,7 @@
 define(['i18n!git/nls/gitmessages', 'require', 'dojo', 'orion/commands', 'orion/util', 'orion/git/util', 'orion/compare/compareUtils', 'orion/git/widgets/CloneGitRepositoryDialog', 
         'orion/git/widgets/AddRemoteDialog', 'orion/git/widgets/GitCredentialsDialog', 'orion/widgets/NewItemDialog', 
         'orion/git/widgets/RemotePrompterDialog', 'orion/git/widgets/ApplyPatchDialog', 'orion/git/widgets/OpenCommitDialog', 'orion/git/widgets/ConfirmPushDialog', 'orion/git/widgets/ReviewRequestDialog', 
-        'orion/git/widgets/ContentDialog', 'orion/git/widgets/CommitDialog', 'orion/git/widgets/AddRemoteRepositoryPrompterDialog'], 
+        'orion/git/widgets/ContentDialog', 'orion/git/widgets/CommitDialog'], 
         function(messages, require, dojo, mCommands, mUtil, mGitUtil, mCompareUtils) {
 
 /**
@@ -1698,6 +1698,18 @@ var exports = {};
 			id: "eclipse.orion.git.askForReviewCommand", //$NON-NLS-0$
 			parameters: notificationParameters,
 			callback: function(data) {
+				var sshCheck = function(gitUrl){
+					var url = gitUrl;
+					var scheme = new dojo._Url(url).scheme;
+					if(scheme === "ssh"){
+						var indexOfAt = url.indexOf("@");
+						if(indexOfAt !== -1){
+							var urlNoUser = "ssh://" + url.substr(indexOfAt + 1);
+							url = urlNoUser;
+						}
+					}
+					return url;
+				};
 				var sendNotificationFunction = function(reviewerName){
 					var item = data.items;
 					var headLocation = item.Location.replace(item.Name, "HEAD"); 
@@ -1708,7 +1720,8 @@ var exports = {};
 						function(clone){
 							var nonHash = window.location.href.split('#')[0]; //$NON-NLS-0$
 							var orionHome = nonHash.substring(0, nonHash.length - window.location.pathname.length);
-							var reviewRequestUrl = orionHome + "/git/reviewRequest.html#" + clone.Children[0].GitUrl + "_" + item.Name;
+							var url = sshCheck(clone.Children[0].GitUrl);
+							var reviewRequestUrl = orionHome + "/git/reviewRequest.html#" + url + "_" + item.Name;
 							serviceRegistry.getService("orion.git.provider").sendCommitReviewRequest(commitName, headLocation, reviewerName, reviewRequestUrl, authorName, commitMessage).then(
 								function(result) {
 									var display = {};
@@ -1729,7 +1742,8 @@ var exports = {};
 					function(clone){
 					var nonHash = window.location.href.split('#')[0]; //$NON-NLS-0$
 						var orionHome = nonHash.substring(0, nonHash.length - window.location.pathname.length);
-						var reviewRequestUrl = orionHome + "/git/reviewRequest.html#" + clone.Children[0].GitUrl + "_" + item.Name;
+						var url = sshCheck(clone.Children[0].GitUrl);
+						var reviewRequestUrl = orionHome + "/git/reviewRequest.html#" + url + "_" + item.Name;
 						var dialog = new orion.git.widgets.ReviewRequestDialog({
 							title: messages["Contribution Review Request"],
 							url: reviewRequestUrl,
@@ -2033,6 +2047,11 @@ var exports = {};
 			imageClass: "git-sprite-fetch", //$NON-NLS-0$
 			spriteClass: "gitCommandSprite", //$NON-NLS-0$
 			callback : function(data) {
+				// check if we know the remote name
+				if(data.parameters && data.parameters.valueFor("remoteName")){
+					data.remoteName = data.parameters.valueFor("remoteName");
+				}
+			
 				var commandInvocation = data;
 				var handleResponse = function(jsonData, commandInvocation){
 					if (jsonData.JsonData.HostKey){
@@ -2054,7 +2073,7 @@ var exports = {};
 					commandService.collectParameters(commandInvocation);
 					return;
 				}
-				var createRemoteFunction = function(remoteLocation, name, selectedRepository) {
+				var createRemoteFunction = function(remoteLocation, name, selectedRepository) {				
 					serviceRegistry.getService("orion.git.provider").addRemote(remoteLocation, name, data.userData).then(function() { //$NON-NLS-0$
 						exports.gatherSshCredentials(serviceRegistry, data).then(
 							function(options) {
@@ -2110,16 +2129,19 @@ var exports = {};
 						});
 					}, displayErrorOnStatus);
 				};
-				var gitService = serviceRegistry.getService("orion.git.provider");
-				var dialog = new orion.git.widgets.AddRemoteRepositoryPrompterDialog({
-					title: messages["Remote Name:"],
-					serviceRegistry: serviceRegistry,
-					repository: data.items,
-					gitClient: gitService,
-					func: createRemoteFunction
-					});
-				dialog.startup();
-				dialog.show();
+					
+				if(commandInvocation.remoteName){
+					// known remote name, execute without prompting
+					createRemoteFunction(commandInvocation.items.RemoteLocation,
+										commandInvocation.remoteName,
+										commandInvocation.items);
+				} else {
+					commandInvocation.parameters = new mCommands.ParametersDescription([
+						new mCommands.CommandParameter("remoteName", "text", messages["Remote Name:"])
+					], {hasOptionalParameters : false});
+					
+					commandService.collectParameters(commandInvocation);
+				}
 
 			},
 			visibleWhen : function(item) {
