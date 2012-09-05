@@ -1,0 +1,44 @@
+<div class="dijitDialog" tabindex="-1" waiRole="dialog" waiState="labelledby-${id}_title">
+	<div dojoAttachPoint="titleBar" class="dijitDialogTitleBar">
+		<span dojoAttachPoint="titleNode" class="dijitDialogTitle" id="${id}_title"></span>
+		<span dojoAttachPoint="closeButtonNode" class="dijitDialogCloseIcon" dojoAttachEvent="onclick: onCancel" title="${buttonCancel}">
+			<span dojoAttachPoint="closeText" class="closeText" title="${buttonCancel}">x</span>
+		</span>
+	</div>
+	<div dojoAttachPoint="containerNode" class="dijitDialogPaneContent">
+		<!-- Actual content here -->
+		<div style="display: none; padding-top: 10px; padding-bottom: 10px;" dojoAttachPoint="gitCredentialsLabel">Provide credentials for: <b dojoAttachPoint="url"></b></div>
+		<div style="display: table">
+			<div>
+				<div style="vertical-align: top">
+					<label dojoAttachPoint="bugIdLabel" for="${id}_gitSshUsername" style="padding-right: 10">Bug ID</label>
+				</div>
+				<div style="width: 60em; text-align: left; vertical-align: top;">
+					<input dojoAttachPoint="bugIdInput" id="${id}_gitSshUsername" style="display: inline-block; width: 30%;" value="">
+				</div>
+			</div>
+			<div>
+				<div style="vertical-align: top">
+					<label dojoAttachPoint="bugzillaRadiosLabel" for="${id}_gitSshUsername" style="padding-right: 10">Choose Bugzilla</label>
+				</div>
+				<div style="width: 60em; text-align: left; vertical-align: top;">
+					<div dojoAttachPoint="bugzillaRadios" id="bugzillaRadios" style="display: inline-block; width: 80%;" value="">
+				</div>
+			</div>
+			<div>
+				<div style="vertical-align: top">
+					<label dojoAttachPoint="previewLabel" for="${id}_gitSshUsername" style="padding-right: 10">Comment Preview</label>
+				</div>
+				<div style="width: 98%; text-align: left; vertical-align: top;">
+					<textarea dojoAttachPoint="commentPreview" id="${id}_gitSshUsername" style="display: inline-block; width: 98%;" value="" readonly>
+				</textarea>
+			</div>
+			<div>
+				<div dojoAttachPoint="buttonDiv" style="display: table-cell;float: right">
+					<button dojoAttachPoint="okButton" disabled=true dojoType="dijit.form.Button" type="submit" value="OK" style="padding: 20 0 10 0; float: right; clear: both;">Submit
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>

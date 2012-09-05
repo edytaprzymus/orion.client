@@ -9,16 +9,34 @@
  * Contributors: IBM Corporation - initial API and implementation
  ******************************************************************************/
 
-/*global define console document Image*/
+/*global define orion console document Image*/
 
 define(['i18n!git/nls/gitmessages', 'dojo', 'orion/section', 'orion/explorer', 'orion/i18nUtil', 'orion/globalCommands', 'orion/compare/diff-provider', 
         'orion/compare/compare-container', 'orion/git/gitCommands', 'orion/navigationUtils'], 
 		function(messages, dojo, mSection, mExplorer, i18nUtil, mGlobalCommands, mDiffProvider , mCompareContainer, mGitCommands, mNavUtils) {
 	var exports = {};
+	
+	var commentHelper = function(refs, that, commit, userData, urls, initLength, matched){
+		if(refs.length>0){
+			var service = that.registry.getService(refs[0]);
+			service.run(that.defaultBugId).then(
+				function(result){
+					urls[initLength - refs.length] = result;
+					if(refs.length === 1){
+						userData[8] = urls;
+						that.commandService.registerCommandContribution("postComment", "eclipse.orion.git.postCommentButtonCommand", 100); //$NON-NLS-0$
+						that.commandService.renderCommands("postComment", dojo.byId("generalCommentSpan"), commit, this, "button", userData); //$NON-NLS-0$
+					}
+					
+				}
+			);
+		commentHelper(refs.slice(1), that, commit, userData, urls, initLength, matched);
+		}
+	};
 
 	exports.GitCommitExplorer = (function() {
 
-		/**
+		/*
 		 * Creates a new Git commit explorer.
 		 * @class Git commit explorer
 		 * @name orion.git.GitCommitExplorer
@@ -31,6 +49,7 @@ define(['i18n!git/nls/gitmessages', 'dojo', 'orion/section', 'orion/explorer', '
 		 * @param sectionToolsId
 		 * @param actionScopeId
 		 */
+
 		function GitCommitExplorer(registry, commandService, linkService, selection, parentId, toolbarId, selectionToolsId, actionScopeId){
 			this.parentId = parentId;
 			this.registry = registry;
@@ -74,7 +93,6 @@ define(['i18n!git/nls/gitmessages', 'dojo', 'orion/section', 'orion/explorer', '
 		GitCommitExplorer.prototype.display = function(location){
 			var that = this;
 			var progressService = this.registry.getService("orion.page.message"); //$NON-NLS-0$
-
 			var loadingDeferred = new dojo.Deferred();
 			progressService.showWhile(loadingDeferred, messages["Loading..."]);
 			this.registry.getService("orion.git.provider").getGitClone(location).then( //$NON-NLS-0$
@@ -94,7 +112,6 @@ define(['i18n!git/nls/gitmessages', 'dojo', 'orion/section', 'orion/explorer', '
 								that.displayCommit(commits[0]);
 								that.displayTags(commits[0]);
 								that.displayDiffs(commits[0]);
-								
 								commits[0].CloneLocation = repositories[0].Location;
 								
 								// render commands
@@ -117,6 +134,43 @@ define(['i18n!git/nls/gitmessages', 'dojo', 'orion/section', 'orion/explorer', '
 			var that = this;
 			var item = {};
 			
+			var bugzillaPlugin = this.registry.getServiceReferences("orion.git.bugzilla"); //$NON-NLS-0$
+			this.enableComments = false;
+			var patterns = {};
+			that.urlPatterns = [];
+			that.bugzillaNames = [];
+			if (bugzillaPlugin.length > 0){
+				var info = {};
+				this.enableComments = true;
+				that.weakMatched = true;
+				for(var i = 0; i<bugzillaPlugin.length; i++){
+					var propertyNames = bugzillaPlugin[i].getPropertyKeys();
+					for (var j = 0; j < propertyNames.length; j++) {
+						info[propertyNames[j]] = bugzillaPlugin[i].getProperty(propertyNames[j]);
+					}
+					if(info.pattern){
+						patterns[i] = info.pattern;
+						that.urlPatterns[i] = info.returnUrl;
+						that.bugzillaNames[i] = info.bugzillaName;
+						var patternToMatch = new RegExp(info.pattern);
+						var match =  patternToMatch.exec(commit.Message);
+						if(match !== null){
+							that.defaultBugId = match[1];
+							that.matched = true;
+							that.urlPattern = info.returnUrl;
+							that.bugzillaName = info.bugzillaName;
+							that.index = i;
+							break;
+						}
+						var patternToMatch2 = new RegExp(info.optionalPattern, "i");
+						var weakMatch = patternToMatch2.exec(commit.Message);
+						if(weakMatch !== null){
+							that.defaultBugId = weakMatch[1];
+							that.urlPattern = null;
+						}
+					}
+				}
+			}
 			commit.GitUrl = repository.GitUrl;
 			commit.ContentLocation = repository.ContentLocation;
 			
@@ -276,7 +330,6 @@ define(['i18n!git/nls/gitmessages', 'dojo', 'orion/section', 'orion/explorer', '
 		// Git diffs
 		
 		GitCommitExplorer.prototype.displayDiffs = function(commit){
-			
 			var that = this;
 			
 			var diffs = commit.Diffs;
@@ -293,7 +346,48 @@ define(['i18n!git/nls/gitmessages', 'dojo', 'orion/section', 'orion/explorer', '
 			
 			this.commandService.registerCommandContribution(section.actionsNode.id, "orion.explorer.expandAll", 100); //$NON-NLS-1$ //$NON-NLS-0$
 			this.commandService.registerCommandContribution(section.actionsNode.id, "orion.explorer.collapseAll", 200); //$NON-NLS-1$ //$NON-NLS-0$
+			
+			var tableNode = dojo.byId( 'table' );
+			if (that.enableComments){
+				function isDirty(){
+					var detailedComments = dojo.query(".commentField");
+					var commentField = dojo.byId("generalComment");
+					for(var i=0;i<detailedComments.length;i++){
+						if(detailedComments[i].value.length>0)
+							return true;
+					}
+					if(commentField.value.length>0)
+						return true;
+						
+					return false;
+				}
+				
+				function closeWarning(){
+					if(isDirty()){
+						return messages["There is unposted comment on this page"];
+				    }
+				}
+				window.onbeforeunload = closeWarning;
+				that.userData = [];
+				that.userData[0] = that.defaultBugId;
+				that.userData[1] = that.matched;
+				that.userData[2] = that.urlPattern;
+				that.userData[3] = that.weakMatched;
+				that.userData[4] = that.urlPatterns;
+				that.userData[5] = that.bugzillaNames;
+				that.userData[6] = that.bugzillaName;
+				that.userData[7] = that.index;
+				section.actionsNode.style.padding = "5px";
+				var commentSpan = dojo.create("div", {"style": "display: none; padding: 5px; width: 98%;","id":"generalCommentSpan"},dojo.byId("diffSection"), "last");
+				var commentField = dojo.create("textarea", {"style": "display: block ;width: 98%;height: 3em; vertical-align: top; align: left; margin: 5px", "class":"commentField2", "id":"generalComment"},dojo.byId("generalCommentSpan"));
+				that.commandService.registerCommandContribution(commentField.id, "eclipse.orion.git.addCommentButtonCommand", 100); //$NON-NLS-0$
+				that.commandService.renderCommands(commentField.id, section.actionsNode, commit, this, "button", "generalCommentSpan"); //$NON-NLS-0$
+				commentHelper(that.registry.getServiceReferences("orion.git.bugzilla"), that, commit, that.userData, [], that.registry.getServiceReferences("orion.git.bugzilla").length, that.matched);
+			}
+			
+			
 
+			
 			var sectionItemActionScopeId = "diffSectionItemActionArea"; //$NON-NLS-0$
 			
 			DiffModel = (function() {
@@ -314,6 +408,7 @@ define(['i18n!git/nls/gitmessages', 'dojo', 'orion/section', 'orion/explorer', '
 								parentItem.children = [];
 								parentItem.children.push({parent: parentItem, DiffLocation: parentItem.DiffLocation}); //$NON-NLS-2$ //$NON-NLS-1$ //$NON-NLS-0$
 							}
+							
 							onComplete(parentItem.children); //$NON-NLS-2$ //$NON-NLS-1$ //$NON-NLS-0$
 							//onComplete([{parent: parentItem}]); //$NON-NLS-2$ //$NON-NLS-1$ //$NON-NLS-0$
 						} else {
@@ -366,13 +461,26 @@ define(['i18n!git/nls/gitmessages', 'dojo', 'orion/section', 'orion/explorer', '
 							
 							return td;
 						} else {
+							var path = item.parent.OldPath;
+							if (item.parent.ChangeType === "ADD"){ //$NON-NLS-0$
+								path = item.parent.NewPath;
+							} else if (item.ChangeType === "DELETE"){ //$NON-NLS-0$
+							}
 							var td = document.createElement("td"); //$NON-NLS-0$
 							td.colSpan = 2;
 							var div = dojo.create( "div", {"class" : "sectionTableItem"}, td ); //$NON-NLS-2$ //$NON-NLS-1$ //$NON-NLS-0$
 
 							var actionsWrapper = dojo.create( "div", {"class": "sectionExplorerActions"}, div);
+							
 							var diffActionWrapper = dojo.create("span", {id: "diff" + item.parent.DiffLocation + "DiffActionWrapper"}, actionsWrapper, "last");
 							var compareWidgetActionWrapper = dojo.create("span", {id: "diff" + item.parent.DiffLocation + "CompareWidgetActionWrapper"}, actionsWrapper, "last");
+							if (that.enableComments){
+								var commentWrapper = dojo.create( "div", {"class": "sectionExplorerActions", "style": "padding: 5px"}, div);
+								var commentField = dojo.create("textarea", {"style": "display: none ;width: 98%;height: 3em; vertical-align: top;", "class":"commentField", "id": path},commentWrapper);
+								var addCommentActionWrapper = dojo.create("span", {id: "diff" + item.parent.DiffLocation + "addCommentActionWrapper"}, actionsWrapper, "last");
+								that.commandService.registerCommandContribution(addCommentActionWrapper.id, "eclipse.orion.git.addCommentButtonCommand", 100); //$NON-NLS-0$
+								that.commandService.renderCommands(addCommentActionWrapper.id, addCommentActionWrapper, commit, this, "button", path); //$NON-NLS-0$
+							}
 							
 							dojo.create( "div", { "id":"diffArea_" + item.parent.DiffLocation, "style":"height:420px; border:1px solid lightgray; overflow: hidden"}, div); //$NON-NLS-4$ //$NON-NLS-3$ //$NON-NLS-2$ //$NON-NLS-1$ //$NON-NLS-0$
 							var navGridHolder = this.explorer.getNavDict() ? this.explorer.getNavDict().getGridNavHolder(item, true) : null;

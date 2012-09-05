@@ -13,7 +13,7 @@
 /*jslint browser:true eqeqeq:false laxbreak:true */
 define(['i18n!git/nls/gitmessages', 'require', 'dojo', 'orion/commands', 'orion/util', 'orion/git/util', 'orion/compare/compareUtils', 'orion/git/widgets/CloneGitRepositoryDialog', 
         'orion/git/widgets/AddRemoteDialog', 'orion/git/widgets/GitCredentialsDialog', 'orion/widgets/NewItemDialog', 
-        'orion/git/widgets/RemotePrompterDialog', 'orion/git/widgets/ApplyPatchDialog', 'orion/git/widgets/OpenCommitDialog', 'orion/git/widgets/ConfirmPushDialog', 'orion/git/widgets/ReviewRequestDialog', 
+        'orion/git/widgets/RemotePrompterDialog', 'orion/git/widgets/ApplyPatchDialog', 'orion/git/widgets/OpenCommitDialog', 'orion/git/widgets/ConfirmPushDialog', 'orion/git/widgets/ReviewRequestDialog', 'orion/git/widgets/PostCommentDialog',
         'orion/git/widgets/ContentDialog', 'orion/git/widgets/CommitDialog'], 
         function(messages, require, dojo, mCommands, mUtil, mGitUtil, mCompareUtils) {
 
@@ -2083,7 +2083,7 @@ var exports = {};
 				if(data.parameters && data.parameters.valueFor("remoteName")){
 					data.remoteName = data.parameters.valueFor("remoteName");
 				}
-			
+
 				var commandInvocation = data;
 				var handleResponse = function(jsonData, commandInvocation){
 					if (jsonData.JsonData.HostKey){
@@ -2161,7 +2161,7 @@ var exports = {};
 						});
 					}, displayErrorOnStatus);
 				};
-					
+
 				if(commandInvocation.remoteName){
 					// known remote name, execute without prompting
 					createRemoteFunction(commandInvocation.items.RemoteLocation,
@@ -2171,7 +2171,7 @@ var exports = {};
 					commandInvocation.parameters = new mCommands.ParametersDescription([
 						new mCommands.CommandParameter("remoteName", "text", messages["Remote Name:"])
 					], {hasOptionalParameters : false});
-					
+
 					commandService.collectParameters(commandInvocation);
 				}
 
@@ -2397,6 +2397,81 @@ var exports = {};
 			}
 		});
 		commandService.addCommand(openCommitCommand);
+		
+		var addCommentButtonCommand = new mCommands.Command({
+			name : messages["Add Comment"],
+			tooltip: messages["Add comment about this change"],
+			id : "eclipse.orion.git.addCommentButtonCommand", //$NON-NLS-0$
+			imageClass: "git-sprite-apply_patch", //$NON-NLS-0$
+			spriteClass: "gitCommandSprite", //$NON-NLS-0$
+			callback: function(data) {
+				var commentField = dojo.byId(data.userData);
+				if(commentField.style.display === "none")
+					commentField.style.display = "block";
+				else
+					commentField.style.display = "none";
+			},
+			visibleWhen : function(item){
+				return item.Type === "Commit";
+			}
+		});
+		commandService.addCommand(addCommentButtonCommand);
+		
+		var postCommentButtonCommand = new mCommands.Command({
+			name : messages["Post Comment"],
+			tooltip: messages["Post comment about this commit on bugs.eclipse.org"],
+			id : "eclipse.orion.git.postCommentButtonCommand", //$NON-NLS-0$
+			imageClass: "git-sprite-apply_patch", //$NON-NLS-0$
+			spriteClass: "gitCommandSprite", //$NON-NLS-0$
+			callback: function(data) {
+				var detailedComments = dojo.query(".commentField");
+				var commentField = dojo.byId("generalComment");
+				var preview = "Comment about commit " + data.items.Name + "\n" + commentField.value + "\n\n";
+				var url = "Comment about commit " + data.items.Name + "%0A" + commentField.value + "%0A%0A";
+				for(var i=0; i<detailedComments.length; i++){
+					preview = preview + "Comment about change " +  detailedComments[i].id + "\n";
+					preview = preview + detailedComments[i].value + "\n\n";
+					url = url + "Comment about change " +  detailedComments[i].id + "%0A";
+					url = url + detailedComments[i].value + "%0A%0A";	
+				}
+
+				if(commentField.value.length>0){
+					var display = [];
+					display.Message = "";
+					serviceRegistry.getService("orion.page.message").setProgressMessage("");
+					var dialog = new orion.git.widgets.PostCommentDialog({
+						title: messages["Post Comment"],
+						preview: preview,
+						url: url,
+						general: commentField.value,
+						defaultBugId : data.userData[0],
+						processUrl : data.userData[2],
+						matched : data.userData[1],
+						weakMatched : data.userData[3],
+						processUrls : data.userData[4],
+						bugzillaNames : data.userData[5],
+						bugzillaName : data.userData[6],
+						urls : data.userData[8],
+						index : data.userData[7],
+						serviceRegistry: serviceRegistry
+					});
+					dialog.startup();
+					dialog.show();
+					serviceRegistry.getService("orion.page.message").setProgressResult(undefined);
+				}
+				else{
+					var display = [];
+					display.Severity = "Error"; //$NON-NLS-0$
+					display.HTML = false;
+					display.Message = "You cannot post empty comment. Please add comments for the commit and try again";
+					serviceRegistry.getService("orion.page.message").setProgressResult(display); //$NON-NLS-0$
+				}
+			},
+			visibleWhen : function(item){
+				return item.Type === "Commit";
+			}
+		});
+		commandService.addCommand(postCommentButtonCommand);
 	};
 
 	exports.createGitStatusCommands = function(serviceRegistry, commandService, explorer) {

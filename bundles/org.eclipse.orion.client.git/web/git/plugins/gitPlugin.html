@@ -184,6 +184,32 @@
 				],
 				uriTemplate: "http://git.eclipse.org/c{EclipseGitLocation}/commit/?id={commitName}"
 			});
+			
+			provider.registerServiceProvider("orion.git.bugzilla",{run: function(bugId) {
+			    return  "https://bugs.eclipse.org/bugs/process_bug.cgi?id=" + bugId;
+			  }} ,{
+			  nameKey: "Add comment",
+			  nls: "git/nls/gitmessages",
+			  id: "org.eclipse.bugzillaEclipse",
+			  pattern: "bugs\\.eclipse\\.org\\/bugs\\/show_bug\\.cgi\\?id=(\\d{4,7})",
+			  returnUrl : "https://bugs.eclipse.org/bugs/process_bug.cgi?id=",
+			  optionalPattern : "bug\\s(\\d{4,7})",
+			  bugzillaName : "bugs.eclipse.org"
+			  }
+			);
+			
+			provider.registerServiceProvider("orion.git.bugzilla",{run: function(bugId) {
+			    return  "https://bugs.orion.org/bugs/process_bug.cgi?id=" + bugId;
+			  }} ,{
+			  nameKey: "Add comment",
+			  nls: "git/nls/gitmessages",
+			  id: "org.eclipse.bugzillaOrion",
+			  pattern: "bugs\\.orion\\.org\\/bugs\\/show_bug\\.cgi\\?id=(\\d{4,7})",
+			  returnUrl : "https://bugs.orion.org/bugs/process_bug.cgi?id=",
+			  optionalPattern : "bug\\s(\\d{4,7})",
+			  bugzillaName : "bugs.orion.org"
+			  }
+			);
 						
 			temp.href = "../../gitapi/diff/";
 			var base = temp.href;

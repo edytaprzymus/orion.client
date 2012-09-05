@@ -362,5 +362,10 @@ define({
 	"Ask for review tooltip" : "Send email with request for commit review",
 	"Reviewer name" : "Reviewer name",
 	"Contribution Review Request" : "Contribution Review Request",
-	"Send the link to the reviewer" : "Send the link to the reviewer"
+	"Send the link to the reviewer" : "Send the link to the reviewer",
+	"Post Comment" : "Post Comment",
+	"Post comment about this commit on bugs.eclipse.org" : "Post comment about this commit on bugs.eclipse.org",
+	"Add Comment" : "Add Comment",
+	"Add comment about this change" : "Add comment about this change",
+	"There is unposted comment on this page" : "There is unposted comment on this page"
 });
